@@ -12,10 +12,10 @@ static void onic_get_drvinfo(struct net_device *netdev,
 {
 	struct onic_priv *xpriv = netdev_priv(netdev);
 
-	strlcpy(drvinfo->driver, onic_drv_name, sizeof(drvinfo->driver));
-	strlcpy(drvinfo->version, onic_drv_ver,
+	strscpy(drvinfo->driver, onic_drv_name, sizeof(drvinfo->driver));
+	strscpy(drvinfo->version, onic_drv_ver,
 		sizeof(drvinfo->version));
-	strlcpy(drvinfo->bus_info, pci_name(xpriv->pcidev),
+	strscpy(drvinfo->bus_info, pci_name(xpriv->pcidev),
 		sizeof(drvinfo->bus_info));
 }
 

@@ -6,7 +6,8 @@ SRC_FOLDERS = . libqdma/qdma_access libqdma \
               libqdma/qdma_access/qdma_soft_access \
               libqdma/qdma_access/eqdma_soft_access \
               libqdma/qdma_access/qdma_s80_hard_access \
-			  jsmn 
+			  			libqdma/qdma_access/eqdma_cpm5_access \
+			 			  libqdma/qdma_access/qdma_cpm4_access
 
 ifneq ($(SUBDIRS),)
     ONIC_OBJS = $(foreach CURR, $(SRC_FOLDERS), $(patsubst $(SUBDIRS)/$(CURR)/%.c, $(CURR)/%.o, $(wildcard $(SUBDIRS)/$(CURR)/*.c)))
@@ -32,6 +33,6 @@ install:
 	install -d ${MODULES_INSTALL_PATH}
 	install -t ${MODULES_INSTALL_PATH} $(MOD_NAME).ko
 
-json_install:
-	install -d /lib/firmware/xilinx/
-	install -m 644 json/*.json /lib/firmware/xilinx/
+#json_install:
+#	install -d /lib/firmware/xilinx/
+#	install -m 644 json/*.json /lib/firmware/xilinx/
