@@ -1,1 +1,1 @@
-savedcmd_/work/amotta/RecoNIC/drivers/onic-driver/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /work/amotta/RecoNIC/drivers/onic-driver/Module.symvers -T /work/amotta/RecoNIC/drivers/onic-driver/modules.order -i Module.symvers -e 
+savedcmd_/work_extra/amotta/onic-driver_u55/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /work_extra/amotta/onic-driver_u55/Module.symvers -T /work_extra/amotta/onic-driver_u55/modules.order -i Module.symvers -e 

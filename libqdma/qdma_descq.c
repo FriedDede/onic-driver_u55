@@ -776,7 +776,7 @@ static void desc_alloc_irq(struct qdma_descq *descq)
 
 	idx = xdev->dvec_start_idx;
 	if (xdev->conf.qdma_drv_mode == DIRECT_INTR_MODE) {
-		for (i = xdev->dvec_start_idx; i < xdev->num_vecs; i++) {
+		for (i = xdev->dvec_start_idx; i < xdev->conf.data_msix_qvec_max; i++) {
 			struct intr_info_t *intr_info_list =
 					&xdev->dev_intr_info_list[i];
 

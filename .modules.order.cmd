@@ -1,1 +1,1 @@
-savedcmd_/work/amotta/RecoNIC/drivers/onic-driver/modules.order := {   echo /work/amotta/RecoNIC/drivers/onic-driver/onic.o; :; } > /work/amotta/RecoNIC/drivers/onic-driver/modules.order
+savedcmd_/work_extra/amotta/onic-driver_u55/modules.order := {   echo /work_extra/amotta/onic-driver_u55/onic.o; :; } > /work_extra/amotta/onic-driver_u55/modules.order

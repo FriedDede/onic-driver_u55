@@ -1,1 +1,1 @@
-savedcmd_/work/amotta/RecoNIC/drivers/onic-driver/onic.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /work/amotta/RecoNIC/drivers/onic-driver/onic.ko /work/amotta/RecoNIC/drivers/onic-driver/onic.o /work/amotta/RecoNIC/drivers/onic-driver/onic.mod.o
+savedcmd_/work_extra/amotta/onic-driver_u55/onic.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /work_extra/amotta/onic-driver_u55/onic.ko /work_extra/amotta/onic-driver_u55/onic.o /work_extra/amotta/onic-driver_u55/onic.mod.o

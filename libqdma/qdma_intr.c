@@ -19,6 +19,8 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ":%s: " fmt, __func__
 
+#define DEBUG 1
+
 #include <linux/kernel.h>
 #include "qdma_descq.h"
 #include "qdma_device.h"
@@ -657,6 +659,17 @@ int intr_setup(struct xlnx_dma_dev *xdev)
 	 */
 	i = 0; /* This is mandatory, do not delete */
 
+	/* data interrupt */
+	xdev->dvec_start_idx = i;
+	for (; i < xdev->conf.data_msix_qvec_max; i++) {
+		rv = intr_vector_setup(xdev, i, INTR_TYPE_DATA,
+					data_intr_handler);
+		if (rv)
+			goto cleanup_irq;
+	}
+	xdev->flags |= XDEV_FLAG_IRQ;
+	return rv;
+
 #ifndef MBOX_INTERRUPT_DISABLE
 	if (qdma_mbox_is_irq_availabe(xdev)) {
 		/* Mail box interrupt */
@@ -691,18 +704,6 @@ int intr_setup(struct xlnx_dma_dev *xdev)
 		i++;
 	}
 #endif
-
-	/* data interrupt */
-	xdev->dvec_start_idx = i;
-	for (; i < xdev->num_vecs; i++) {
-		rv = intr_vector_setup(xdev, i, INTR_TYPE_DATA,
-					data_intr_handler);
-		if (rv)
-			goto cleanup_irq;
-	}
-
-	xdev->flags |= XDEV_FLAG_IRQ;
-	return rv;
 
 cleanup_irq:
 	while (--i >= 0)
