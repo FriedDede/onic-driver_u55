@@ -1,4 +1,19 @@
-# onic-driver
+# QDMA NIC DRIVER
+## branch organization
+1. main: QEP-based driver for plain OPEN NIC SHELL:
+  - HW: [open-nic-shell](https://github.com/Xilinx/open-nic-shell).
+    
+2. u55_support: patched driver for RECONIC on U55, this driver adds support for:
+  - ERNIC 5
+  - QDMA 5
+  - Vivado 2024.2
+  - HBM on the alveo u55
+  - HW: [reco-nic-u55](https://github.com/FriedDede/RecoNIC_u55/tree/au55_support)
+
+3. kvs_onic: patched driver (based on RECONIC driver), for OPEN NIC SHELL + kvs replication offload
+  - HW: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/replication)
+
+# onic-driver 
 
 onic-driver is the brand-new driver for [open-nic-shell](https://github.com/Xilinx/open-nic-shell).
 It is written refering to [qep-driver](https://github.com/Xilinx/qep-drivers/tree/master/linux-kernel/driver)
