@@ -12,7 +12,7 @@
 
 3. kvs_onic: patched driver (based on RECONIC driver), for OPEN NIC SHELL
   - HW: kvs offload: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/replication)
-  - HW: patched onic: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/mm_onic)
+  - HW: patched onic: [mm-onic](https://github.com/FriedDede/open-nic-shell_u55/tree/mm_onic)
 
 # onic-driver 
 
