@@ -10,8 +10,9 @@
   - HBM on the alveo u55
   - HW: [reco-nic-u55](https://github.com/FriedDede/RecoNIC_u55/tree/au55_support)
 
-3. kvs_onic: patched driver (based on RECONIC driver), for OPEN NIC SHELL + kvs replication offload
-  - HW: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/replication)
+3. kvs_onic: patched driver (based on RECONIC driver), for OPEN NIC SHELL
+  - HW: kvs offload: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/replication)
+  - HW: patched onic: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/mm_onic)
 
 # onic-driver 
 
