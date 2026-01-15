@@ -19,8 +19,6 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ":%s: " fmt, __func__
 
-#define DEBUG 0
-
 #include <linux/kernel.h>
 #include "qdma_descq.h"
 #include "qdma_device.h"
