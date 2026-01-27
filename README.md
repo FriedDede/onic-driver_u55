@@ -1,7 +1,8 @@
 # QDMA NIC DRIVER
 ## branch organization
-1. main: QEP-based driver for plain OPEN NIC SHELL:
+1. main: QEP-based driver for patched OPEN NIC SHELL:
   - HW: [open-nic-shell](https://github.com/Xilinx/open-nic-shell).
+  - PATCH  [open-nic-shell patch](https://github.com/Hyunok-Kim/open-nic-shell/commit/a1ba78308efded589967431eddf0a397f69f2806)
     
 2. u55_support: patched driver for RECONIC on U55, this driver adds support for:
   - ERNIC 5
