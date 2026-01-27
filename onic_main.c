@@ -14,6 +14,16 @@ char onic_drv_name[] = "onic";
 #define DRV_VER "1.00"
 char onic_drv_ver[] = DRV_VER;
 
+/**
+ * Default MAC address 00:0A:35:00:00:00
+ * First three octets indicate OUI (00:0A:35 for Xilinx)
+ * Note that LSB of the first octet must be 0 (unicast)
+ **/
+static const unsigned char onic_default_dev_addr[] = {
+  0x00, 0x0A, 0x35, 0x00, 0x00, 0x00
+};
+
+
 /* PCI id for devices */
 static const struct pci_device_id onic_pci_ids[] = {
 	{ PCI_DEVICE(0x10ee, 0x903f) },
@@ -227,7 +237,7 @@ static int onic_rx_poll(struct napi_struct *napi, int quota)
 	qdma_queue_update_pointers(xpriv->dev_handle, q_handle);
 
 	if (xpriv->pinfo->poll_mode || (pkt_cnt >= quota))
-		napi_reschedule(napi);
+		napi_schedule(napi);
 
 	return 0;
 }
@@ -338,8 +348,7 @@ static int onic_qdma_rx_queue_setup(struct onic_priv *xpriv)
 				   __func__, q_no, ret);
 			goto release_rx_q;
 		}
-		netif_napi_add(xpriv->netdev, &xpriv->napi[q_no], onic_rx_poll,
-			       ONIC_NAPI_WEIGHT);
+		netif_napi_add(xpriv->netdev, &xpriv->napi[q_no], onic_rx_poll);
 	}
 
 	return 0;
@@ -832,18 +841,21 @@ free_packet_data:
 
 static int onic_set_mac_address(struct net_device *dev, void *addr)
 {
-	struct sockaddr *saddr = addr;
-	u8 *dev_addr = saddr->sa_data;
-	if (!is_valid_ether_addr(saddr->sa_data))
-		return -EADDRNOTAVAIL;
+  struct sockaddr *saddr = addr;
+  u8 *dev_addr = saddr->sa_data;
+  if (!is_valid_ether_addr(saddr->sa_data))
+    return -EADDRNOTAVAIL;
 
-	netdev_info(dev, "Set MAC address to %x:%x:%x:%x:%x:%x",
-		    dev_addr[0], dev_addr[1], dev_addr[2],
-		    dev_addr[3], dev_addr[4], dev_addr[5]);
-	memcpy(dev->dev_addr, dev_addr, dev->addr_len);
-	return 0;
+  netdev_info(dev, "Set MAC address to %x:%x:%x:%x:%x:%x",
+        dev_addr[0], dev_addr[1], dev_addr[2],
+        dev_addr[3], dev_addr[4], dev_addr[5]);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 18, 0)
+  memcpy(dev->dev_addr, dev_addr, dev->addr_len);
+#else // LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+  eth_hw_addr_set(dev, dev_addr);
+#endif
+  return 0;
 };
-
 static int onic_do_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 {
 	return 0;
@@ -1056,36 +1068,50 @@ static void onic_disable_cmac(struct onic_priv *xpriv)
 	writel(0x0, xpriv->bar_base + CMAC_OFFSET_CONF_RX_1(cmac_id));
 }
 
+static void onic_reset_cmac(struct onic_priv *xpriv) {
+  u8 cmac_id = xpriv->pinfo->port_id;
+
+  if (cmac_id == 0) {
+    writel(0x10, xpriv->bar_base + SYSCFG_OFFSET_SHELL_RESET);
+    while ((readl(xpriv->bar_base + SYSCFG_OFFSET_SHELL_STATUS) & 0x10) != 0x10)
+      mdelay(1);
+  } else {
+    writel(0x100, xpriv->bar_base + SYSCFG_OFFSET_SHELL_RESET);
+    while ((readl(xpriv->bar_base + SYSCFG_OFFSET_SHELL_STATUS) & 0x100) != 0x100)
+      mdelay(1);
+  }
+}
 static int onic_enable_cmac(struct onic_priv *xpriv)
 {
-	u8 cmac_id = xpriv->pinfo->port_id;
+  int timeout_cnt = 0;
+  u8 cmac_id = xpriv->pinfo->port_id;
 
-	if (xpriv->pinfo->rsfec_en) {
-		/* Enable RS-FEC for CMACs with RS-FEC implemented */
-		writel(0x3, xpriv->bar_base + CMAC_OFFSET_RSFEC_CONF_ENABLE(cmac_id));
-		writel(0x7, xpriv->bar_base + CMAC_OFFSET_RSFEC_CONF_IND_CORRECTION(cmac_id));
-	}
+  onic_reset_cmac(xpriv);
 
-	if (cmac_id == 0) {
-		writel(0x10, xpriv->bar_base + SYSCFG_OFFSET_SHELL_RESET);
-		while ((readl(xpriv->bar_base + SYSCFG_OFFSET_SHELL_STATUS) & 0x10) != 0x10)
-			mdelay(1);
-	} else {
-		writel(0x100, xpriv->bar_base + SYSCFG_OFFSET_SHELL_RESET);
-		while ((readl(xpriv->bar_base + SYSCFG_OFFSET_SHELL_STATUS) & 0x100) != 0x100)
-			mdelay(1);
-	}
+  if (xpriv->pinfo->rsfec_en) {
+    /* Enable RS-FEC for CMACs with RS-FEC implemented */
+    writel(0x3, xpriv->bar_base + CMAC_OFFSET_RSFEC_CONF_ENABLE(cmac_id));
+    writel(0x7, xpriv->bar_base + CMAC_OFFSET_RSFEC_CONF_IND_CORRECTION(cmac_id));
+  }
 
-	writel(0x1, xpriv->bar_base + CMAC_OFFSET_CONF_RX_1(cmac_id));
-	writel(0x10, xpriv->bar_base + CMAC_OFFSET_CONF_TX_1(cmac_id));
+  writel(0x1, xpriv->bar_base + CMAC_OFFSET_CONF_RX_1(cmac_id));
+  writel(0x10, xpriv->bar_base + CMAC_OFFSET_CONF_TX_1(cmac_id));
 
-	/* wait for lane alignment */
-	if (!onic_rx_lane_aligned(xpriv, cmac_id)) {
-		mdelay(100);
-		if (!onic_rx_lane_aligned(xpriv, cmac_id))
-			goto rx_not_aligned;
-	}
+  /* wait for lane alignment */
+  while(!onic_rx_lane_aligned(xpriv, cmac_id)) {
+    mdelay(50);
+    timeout_cnt++;
 
+    if (timeout_cnt == CMAC_RX_LANE_ALIGNMENT_RESET_CNT) {
+      onic_reset_cmac(xpriv);
+      writel(0x1, xpriv->bar_base + CMAC_OFFSET_CONF_RX_1(cmac_id));
+      writel(0x10, xpriv->bar_base + CMAC_OFFSET_CONF_TX_1(cmac_id));
+    }
+
+    if (timeout_cnt > CMAC_RX_LANE_ALIGNMENT_TIMEOUT_CNT) {
+      goto rx_not_aligned;
+    }
+  }
 	writel(0x1, xpriv->bar_base + CMAC_OFFSET_CONF_TX_1(cmac_id));
 
 	/* RX flow control */
@@ -1108,8 +1134,9 @@ static int onic_enable_cmac(struct onic_priv *xpriv)
 	return 0;
 
 rx_not_aligned:
-	onic_disable_cmac(xpriv);
-	return -EBUSY;
+  pr_err("[ERROR] %s, rx_not_aligned\n", __func__);
+  onic_disable_cmac(xpriv);
+  return -EBUSY;
 }
 
 static void onic_init_reta(struct onic_priv *xpriv)
@@ -1133,30 +1160,30 @@ static void onic_init_reta(struct onic_priv *xpriv)
 
 }
 
-static int onic_get_pinfo(struct pci_dev *pdev, struct onic_platform_info
-			  **pinfo_ref)
-{
-	int ret;
-	struct onic_platform_info *pinfo;
-	char file_name[50] = {0};
-
-	pinfo = kzalloc(sizeof(struct onic_platform_info), GFP_KERNEL);
-	if (!pinfo)
-		return -ENOMEM;
-
-	sprintf(file_name, "onic_%4x.json", pdev->device);
-	ret = onic_get_platform_info(file_name, pinfo);
-
-	if (ret) {
-		pr_err("%s: onic_get_platform_info failed\n", __func__);
-		kfree(pinfo);
-		return ret;
-	}
-
-	*pinfo_ref = pinfo;
-
-	return 0;
-}
+//  static int onic_get_pinfo(struct pci_dev *pdev, struct onic_platform_info
+//  			  **pinfo_ref)
+//  {
+//  	int ret;
+//  	struct onic_platform_info *pinfo;
+//  	char file_name[50] = {0};
+//  
+//  	pinfo = kzalloc(sizeof(struct onic_platform_info), GFP_KERNEL);
+//  	if (!pinfo)
+//  		return -ENOMEM;
+//  
+//  	sprintf(file_name, "onic_%4x.json", pdev->device);
+//  	ret = onic_get_platform_info(file_name, pinfo);
+//  
+//  	if (ret) {
+//  		pr_err("%s: onic_get_platform_info failed\n", __func__);
+//  		kfree(pinfo);
+//  		return ret;
+//  	}
+//  
+//  	*pinfo_ref = pinfo;
+//  
+//  	return 0;
+//  }
 
 extern void onic_set_ethtool_ops(struct net_device *netdev);
 
@@ -1164,6 +1191,38 @@ extern void onic_set_ethtool_ops(struct net_device *netdev);
  * with Vendor ID and Device ID listed in the in onic_pci_ids table.
  * From this function netdevice and device initialization are done
  */
+static int onic_config_platform(struct onic_platform_info **pinfo_ref, u8 qdma_bar,
+                                u8 qdma_user_bar, u16 queue_base, u16 queue_max,
+                                 int ring_sz, int c2h_tmr_cnt,
+                                int c2h_cnt_thr, int c2h_buf_sz, u8 port_id,
+                                u8 pci_msix_user_cnt, bool is_poll_mode, bool rsfec_en)
+{
+  struct onic_platform_info *pinfo;
+
+  pinfo = kzalloc(sizeof(struct onic_platform_info), GFP_KERNEL);
+  if (!pinfo)
+    return -ENOMEM;
+
+  pinfo->qdma_bar = qdma_bar;
+  pinfo->user_bar = qdma_user_bar;
+  pinfo->queue_base = queue_base;
+  pinfo->queue_max = queue_max;
+  pinfo->port_id = port_id;
+  //pinfo->used_queues = QDMA_NET_QUEUE + mm_queues;
+  pinfo->used_queues = QDMA_NET_QUEUE;
+  pinfo->ring_sz = ring_sz;
+  pinfo->c2h_tmr_cnt = c2h_tmr_cnt;
+  pinfo->c2h_cnt_thr = c2h_cnt_thr;
+  pinfo->c2h_buf_sz  = c2h_buf_sz;
+  pinfo->rsfec_en = rsfec_en;
+  pinfo->pci_msix_user_cnt = pci_msix_user_cnt;
+  pinfo->poll_mode = is_poll_mode;
+  pinfo->intr_mod_en = is_poll_mode ? false : true;
+
+  *pinfo_ref = pinfo;
+  return 0;
+}
+
 static int onic_pci_probe(struct pci_dev *pdev, 
 			  const struct pci_device_id *pci_dev_id)
 {
@@ -1175,8 +1234,13 @@ static int onic_pci_probe(struct pci_dev *pdev,
 	int ret;
 	u64 bar_start;
 	u64 bar_len;
+  bool is_poll_mode = false;
+  bool en_rsfec = true;
 
-	ret = onic_get_pinfo(pdev, &pinfo);
+  ret = onic_config_platform(&pinfo, QDMA_BAR, QDMA_USER_BAR, QDMA_QUEUE_BASE, QMDA_TOTAL_QUEUE_ACTIVE,
+                             RING_SIZE, C2H_TMR_CNT, C2H_CNT_THR, C2H_BUF_SIZE,
+                             CMAC_PORT_ID, PCI_MSIX_USER_CNT, is_poll_mode, en_rsfec);
+
 	if (ret) {
 		pr_err("%s: onic_get_pinfo() failed with status %d\n", __func__,
 		       ret);
@@ -1199,7 +1263,7 @@ static int onic_pci_probe(struct pci_dev *pdev,
 		 pdev->bus->number,
 		 PCI_SLOT(pdev->devfn),
 		 PCI_FUNC(pdev->devfn));
-	strlcpy(netdev->name, dev_name, sizeof(netdev->name));
+	strscpy(netdev->name, dev_name, sizeof(netdev->name));
 
 	/* Initialize driver private data */
 	xpriv = netdev_priv(netdev);
@@ -1209,13 +1273,19 @@ static int onic_pci_probe(struct pci_dev *pdev,
 	xpriv->pinfo = pinfo;
 
 	memset(&saddr, 0, sizeof(struct sockaddr));
-	memcpy(saddr.sa_data, pinfo->mac_addr, 6);
+  memcpy(saddr.sa_data, onic_default_dev_addr, 6);
+  get_random_bytes(saddr.sa_data + 3, 3);
+	memcpy(pinfo->mac_addr, saddr.sa_data, 6);
 	onic_set_mac_address(netdev, (void *)&saddr);
 
-	if (pinfo->pci_master_pf) {
-		dev_info(&pdev->dev, "device is master PF");
-	}
-
+	if (PCI_FUNC(pdev->devfn) == 0) {
+    pinfo->pci_master_pf = true;
+    dev_info(&pdev->dev, "device is a master PF");
+  } else {
+    pinfo->pci_master_pf = false;
+    dev_info(&pdev->dev, "device is not a master PF");
+  }
+	
 	ret = onic_set_num_queue(xpriv);
 	if (ret) {
 		goto exit;

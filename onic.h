@@ -15,6 +15,22 @@
 #define ONIC_RX_PULL_LEN                    (128)
 #define ONIC_NAPI_WEIGHT                    (64)
 
+#define QDMA_BAR 0
+#define QDMA_USER_BAR 2
+#define QDMA_QUEUE_BASE 0
+#define QDMA_QUEUE_MAX 1024
+#define CMAC_PORT_ID 0
+#define QDMA_MM_QUEUE 0
+#define QDMA_NET_QUEUE 64
+#define QMDA_TOTAL_QUEUE_ACTIVE (QDMA_MM_QUEUE + QDMA_NET_QUEUE)
+#define RING_SIZE 1024
+#define C2H_TMR_CNT 5
+#define C2H_CNT_THR 64
+#define C2H_BUF_SIZE 1024
+#define PCI_MSIX_USER_CNT 1
+
+#define CMAC_RX_LANE_ALIGNMENT_RESET_CNT 8
+#define CMAC_RX_LANE_ALIGNMENT_TIMEOUT_CNT 32
 
 struct onic_dma_request {
 	struct sk_buff *skb;

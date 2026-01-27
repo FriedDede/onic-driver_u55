@@ -20,6 +20,5 @@ struct onic_platform_info {
 	u8 mac_addr[6];
 };
 
-int onic_get_platform_info(char *fname, struct onic_platform_info *pinfo);
 
 #endif
