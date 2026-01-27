@@ -470,7 +470,7 @@ static irqreturn_t irq_top(int irq, void *dev_id)
 
 void intr_teardown(struct xlnx_dma_dev *xdev)
 {
-	int i = xdev->num_vecs;
+	int i = xdev->conf.data_msix_qvec_max;
 
 	while (--i >= 0)
 		free_irq(xdev->msix[i].vector, xdev);
