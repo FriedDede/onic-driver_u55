@@ -1237,9 +1237,22 @@ static int onic_pci_probe(struct pci_dev *pdev,
   bool is_poll_mode = false;
   bool en_rsfec = true;
 
-  ret = onic_config_platform(&pinfo, QDMA_BAR, QDMA_USER_BAR, QDMA_QUEUE_BASE, QMDA_TOTAL_QUEUE_ACTIVE,
+  	if (PCI_FUNC(pdev->devfn) == 0) {
+      ret = onic_config_platform(&pinfo, QDMA_BAR, QDMA_USER_BAR, QDMA_QUEUE_BASE_0, QMDA_TOTAL_QUEUE_ACTIVE,
                              RING_SIZE, C2H_TMR_CNT, C2H_CNT_THR, C2H_BUF_SIZE,
-                             CMAC_PORT_ID, PCI_MSIX_USER_CNT, is_poll_mode, en_rsfec);
+                             CMAC_PORT_ID_0, PCI_MSIX_USER_CNT, is_poll_mode, en_rsfec);
+
+    pinfo->pci_master_pf = true;
+    dev_info(&pdev->dev, "device is a master PF");
+  } else {
+    pinfo->pci_master_pf = false;
+    ret = onic_config_platform(&pinfo, QDMA_BAR, QDMA_USER_BAR, QDMA_QUEUE_BASE_1, QMDA_TOTAL_QUEUE_ACTIVE,
+                             RING_SIZE, C2H_TMR_CNT, C2H_CNT_THR, C2H_BUF_SIZE,
+                             CMAC_PORT_ID_1, PCI_MSIX_USER_CNT, is_poll_mode, en_rsfec);
+    dev_info(&pdev->dev, "device is not a master PF");
+  }
+
+  
 
 	if (ret) {
 		pr_err("%s: onic_get_pinfo() failed with status %d\n", __func__,
@@ -1278,13 +1291,6 @@ static int onic_pci_probe(struct pci_dev *pdev,
 	memcpy(pinfo->mac_addr, saddr.sa_data, 6);
 	onic_set_mac_address(netdev, (void *)&saddr);
 
-	if (PCI_FUNC(pdev->devfn) == 0) {
-    pinfo->pci_master_pf = true;
-    dev_info(&pdev->dev, "device is a master PF");
-  } else {
-    pinfo->pci_master_pf = false;
-    dev_info(&pdev->dev, "device is not a master PF");
-  }
 	
 	ret = onic_set_num_queue(xpriv);
 	if (ret) {
