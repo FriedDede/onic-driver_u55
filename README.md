@@ -15,6 +15,9 @@
   - HW: kvs offload: [kvs-onic](https://github.com/FriedDede/kvs_onic/tree/replication)
   - HW: patched onic: [mm-onic](https://github.com/FriedDede/open-nic-shell_u55/tree/mm_onic)
 
+4. onic_clean: patched open_nic driver with rx alignemnt procedure from RecoNic
+  - HW: [open-nic-shell](https://github.com/Xilinx/open-nic-shell).
+
 # onic-driver 
 
 onic-driver is the brand-new driver for [open-nic-shell](https://github.com/Xilinx/open-nic-shell).
