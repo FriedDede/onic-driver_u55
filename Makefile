@@ -1,39 +1,49 @@
-MOD_NAME := onic
-ONIC_DRV_HOME := $(shell pwd)
-ONIC_DRV_KVER := $(shell uname -r)
-
-SRC_FOLDERS = . libqdma/qdma_access libqdma \
-              libqdma/qdma_access/qdma_soft_access \
-              libqdma/qdma_access/eqdma_soft_access \
-              libqdma/qdma_access/qdma_s80_hard_access \
-			  libqdma/qdma_access/eqdma_cpm5_access \
-			 libqdma/qdma_access/qdma_cpm4_access
-
-
-ifneq ($(SUBDIRS),)
-    ONIC_OBJS = $(foreach CURR, $(SRC_FOLDERS), $(patsubst $(SUBDIRS)/$(CURR)/%.c, $(CURR)/%.o, $(wildcard $(SUBDIRS)/$(CURR)/*.c)))
-    EXTRA_CFLAGS = $(foreach CURR, $(SRC_FOLDERS), -I$$SUBDIRS/$(CURR))
+# 
+# Copyright (c) 2020 Xilinx, Inc.
+# All rights reserved.
+# 
+# This source code is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+# 
+# The full GNU General Public License is included in this distribution in
+# the file called "COPYING".
+#
+ifdef KVERSION
+KERNEL_VERS = $(KVERSION)
+else
+KERNEL_VERS = $(shell uname -r)
 endif
 
-EXTRA_CFLAGS += -DMBOX_INTERRUPT_DISABLE
-#CFLAGS_./onic_main.o := -DDEBUG
+srcdir = $(PWD)
+obj-m += onic.o
+BASE_OBJS := $(patsubst $(srcdir)/%.c,%.o,$(wildcard $(srcdir)/*.c $(srcdir)/*/*.c $(srcdir)/*/*/*.c))
+onic-objs = $(BASE_OBJS)
+ccflags-y = -O3 -Wall -Werror -I$(srcdir)/qdma_access -I$(srcdir)/hwmon -I$(srcdir)
 
-obj-m += $(MOD_NAME).o
-$(MOD_NAME)-objs += $(ONIC_OBJS)
-
-ccflags-y := -Wall
+KDIR ?= /lib/modules/$(KERNEL_VERS)/build
 
 all:
-	make -C /lib/modules/$(ONIC_DRV_KVER)/build M=$(ONIC_DRV_HOME) SUBDIRS=$(shell pwd) modules
+	make -C $(KDIR) M=$(PWD) modules
 
+with-clang:
+	make CC=clang -C $(KDIR) M=$(PWD) modules
+	
 clean:
-	make -C /lib/modules/$(ONIC_DRV_KVER)/build M=$(ONIC_DRV_HOME) SUBDIRS=$(shell pwd) clean
-	rm -f libqdma/*.o.ur-safe *.o.ur-safe
+	make -C $(KDIR) M=$(PWD) clean
+	rm -f *.o.ur-safe
+	rm -f ./qdma_access/*.o.ur-safe
 
 install:
-	install -d ${MODULES_INSTALL_PATH}
-	install -t ${MODULES_INSTALL_PATH} $(MOD_NAME).ko
+	rm -f /lib/modules/$(KERNEL_VERS)/onic.ko
+	cp onic.ko /lib/modules/$(KERNEL_VERS)
+	depmod
 
-json_install:
-	install -d /lib/firmware/xilinx/
-	install -m 644 json/*.json /lib/firmware/xilinx/
+uninstall:
+	rm -f /lib/modules/$(KERNEL_VERS)/onic.ko
+	depmod

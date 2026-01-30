@@ -17,8 +17,20 @@
 #ifndef __ONIC_REGISTER_H__
 #define __ONIC_REGISTER_H__
 
+#include "onic_hardware.h"
+
+static inline u32 onic_read_reg(struct onic_hardware *hw, u32 offset)
+{
+	return ioread32(hw->addr + offset);
+}
+
+static inline void onic_write_reg(struct onic_hardware *hw, u32 offset, u32 val)
+{
+	iowrite32(val, hw->addr + offset);
+}
+
 #define SHELL_START					0x0
-#define SHELL_END					0x10000
+#define SHELL_END					0x400000 /* include CMS register space, 0x320000 to 0x330000 */
 #define SHELL_MAXLEN					(SHELL_END - SHELL_START)
 
 /***** system config registers *****/
@@ -248,9 +260,15 @@
 #define CMAC_OFFSET_STAT_RX_RSFEC_CW_INC(i)		(CMAC_OFFSET(i) + 0x103C)
 
 #define CMAC_ADPT_OFFSET_TX_PKT_RECV(i)			(CMAC_ADPT_OFFSET(i) + 0x0)
-#define CMAC_ADPT_OFFSET_TX_PKT_DROP(i)			(CMAC_ADPT_OFFSET(i) + 0x4)
-#define CMAC_ADPT_OFFSET_RX_PKT_RECV(i)			(CMAC_ADPT_OFFSET(i) + 0x10)
-#define CMAC_ADPT_OFFSET_RX_PKT_DROP(i)			(CMAC_ADPT_OFFSET(i) + 0x14)
-#define CMAC_ADPT_OFFSET_RX_PKT_ERROR(i)		(CMAC_ADPT_OFFSET(i) + 0x18)
+#define CMAC_ADPT_OFFSET_TX_PKT_DROP(i)			(CMAC_ADPT_OFFSET(i) + 0x10)
+#define CMAC_ADPT_OFFSET_RX_PKT_RECV(i)			(CMAC_ADPT_OFFSET(i) + 0x20)
+#define CMAC_ADPT_OFFSET_RX_PKT_DROP(i)			(CMAC_ADPT_OFFSET(i) + 0x30)
+#define CMAC_ADPT_OFFSET_RX_PKT_ERROR(i)		(CMAC_ADPT_OFFSET(i) + 0x40)
+
+/* INDIRECTION TABLE*/
+#define INDIRECTION_TABLE_BASE_ADDR			  QDMA_FUNC_OFFSET_INDIR_TABLE(0,0)
+#define INDIRECTION_TABLE_SIZE            0x80
+#define ONIC_EN_RSS_KEY_SIZE	  			    40
+
 
 #endif

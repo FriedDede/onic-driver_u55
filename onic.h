@@ -1,71 +1,156 @@
-#ifndef ONIC_H
-#define ONIC_H
+/*
+ * Copyright (c) 2020 Xilinx, Inc.
+ * All rights reserved.
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * The full GNU General Public License is included in this distribution in
+ * the file called "COPYING".
+ */
+#ifndef __ONIC_H__
+#define __ONIC_H__
 
 #include <linux/netdevice.h>
 #include <linux/cpumask.h>
-#include "onic_json.h"
-#include "libqdma_export.h"
-#include "onic_register.h"
-#include "qdma_access/qdma_access_common.h"
-#include "qdma_descq.h"
+#include <linux/bpf.h>
+#include <net/xdp.h>
+#include <linux/bitops.h>
 
-#define ONIC_ERROR_STR_BUF_LEN              (512)
+#include "onic_hardware.h"
 
-#define ONIC_RX_COPY_THRES                  (256)
-#define ONIC_RX_PULL_LEN                    (128)
-#define ONIC_NAPI_WEIGHT                    (64)
+#define ONIC_MAX_QUEUES			64
 
-#define QDMA_BAR 0
-#define QDMA_USER_BAR 2
-#define QDMA_QUEUE_BASE_0 0
-#define QDMA_QUEUE_BASE_1 64
-#define QDMA_QUEUE_MAX 64
-#define CMAC_PORT_ID_0 0
-#define CMAC_PORT_ID_1 1
-#define QDMA_MM_QUEUE 0
-#define QDMA_NET_QUEUE 64
-#define QMDA_TOTAL_QUEUE_ACTIVE QDMA_NET_QUEUE
-#define RING_SIZE 1024
-#define C2H_TMR_CNT 5
-#define C2H_CNT_THR 64
-#define C2H_BUF_SIZE 4096
-#define PCI_MSIX_USER_CNT 1
+/* state bits */
+#define ONIC_ERROR_INTR			0
+#define ONIC_USER_INTR			1
 
-#define CMAC_RX_LANE_ALIGNMENT_RESET_CNT 8
-#define CMAC_RX_LANE_ALIGNMENT_TIMEOUT_CNT 32
+/* flag bits */
+#define ONIC_FLAG_MASTER_PF		0
 
-struct onic_dma_request {
-	struct sk_buff *skb;
-	struct net_device *netdev;
-	struct qdma_request qdma;
-	struct qdma_sw_sg sgl[MAX_SKB_FRAGS];
+/* XDP */
+#define ONIC_XDP_PASS    	BIT(0)	
+#define ONIC_XDP_CONSUMED	BIT(1)
+#define ONIC_XDP_TX       	BIT(2)
+#define ONIC_XDP_REDIR    	BIT(3)
+
+enum onic_tx_buf_type {
+	ONIC_TX_SKB = BIT(0),
+	ONIC_TX_XDPF = BIT(1),
+	ONIC_TX_XDPF_XMIT = BIT(2),
 };
 
-/* ONIC Net device private structure */
-struct onic_priv {
-	u8 rx_desc_rng_sz_idx;
-	u8 tx_desc_rng_sz_idx;
-	u8 rx_buf_sz_idx;
-	u8 rx_timer_idx;
-	u8 rx_cnt_th_idx;
-	u8 cmpl_rng_sz_idx;
-
-	struct net_device *netdev;
-	struct pci_dev *pcidev;
-	struct onic_platform_info *pinfo;
-
-	u16 num_msix;
-	u16 nb_queues;
-
-	struct kmem_cache *dma_req;
-	struct qdma_dev_conf qdma_dev_conf;
-	unsigned long dev_handle;
-	void __iomem *bar_base;
-
-	unsigned long base_tx_q_handle, base_rx_q_handle;
-	struct napi_struct *napi;
-	struct rtnl_link_stats64 *tx_qstats, *rx_qstats;
-
+struct onic_tx_buffer {
+	enum onic_tx_buf_type type;
+	union {
+		struct sk_buff *skb;
+		struct xdp_frame *xdpf;
+	};
+	dma_addr_t dma_addr;
+	u32 len;
+	u64 time_stamp;
 };
 
-#endif /* ONIC_H */
+struct onic_rx_buffer {
+	struct page *pg;
+	unsigned int offset;
+	u64 time_stamp;
+};
+
+/**
+ * struct onic_ring - generic ring structure
+ **/
+struct onic_ring {
+	u16 count;		/* number of descriptors */
+	u8 *desc;		/* base address for descriptors */
+	u8 *wb;			/* descriptor writeback */
+	dma_addr_t dma_addr;	/* DMA address for descriptors */
+
+	u16 next_to_use;
+	u16 next_to_clean;
+	u8 color;
+};
+
+struct onic_tx_queue {
+	struct net_device *netdev;
+	u16 qid;
+	DECLARE_BITMAP(state, 32);
+
+	struct onic_tx_buffer *buffer;
+	struct onic_ring ring;
+	struct onic_q_vector *vector;
+
+	struct {
+		u64	xdp_xmit;
+		u64	xdp_xmit_err;
+	} xdp_tx_stats;
+};
+
+struct onic_rx_queue {
+	struct net_device *netdev;
+	u16 qid;
+
+	struct onic_rx_buffer *buffer;
+	struct onic_ring desc_ring;
+	struct onic_ring cmpl_ring;
+	struct onic_q_vector *vector;
+
+	struct napi_struct napi;
+	struct bpf_prog *xdp_prog;
+	struct xdp_rxq_info xdp_rxq;
+	struct page_pool *page_pool;
+
+	struct {
+		u64 xdp_redirect;
+		u64 xdp_pass;
+		u64 xdp_drop;
+		u64	xdp_tx;
+		u64	xdp_tx_err;
+	} xdp_rx_stats;
+	
+};
+
+struct onic_q_vector {
+	u16 vid;
+	struct onic_private *priv;
+	struct cpumask affinity_mask;
+	int numa_node;
+};
+
+
+/**
+ * struct onic_private - OpenNIC driver private data
+ **/
+struct onic_private {
+	struct list_head dev_list;
+
+	struct pci_dev *pdev;
+	DECLARE_BITMAP(state, 32);
+	DECLARE_BITMAP(flags, 32);
+
+        int RS_FEC;
+
+	u16 num_q_vectors;
+	u16 num_tx_queues;
+	u16 num_rx_queues;
+
+	struct net_device *netdev;
+	struct bpf_prog *xdp_prog;
+	struct rtnl_link_stats64 *netdev_stats;
+	spinlock_t tx_lock;
+	spinlock_t rx_lock;
+
+	struct onic_q_vector *q_vector[ONIC_MAX_QUEUES];
+	struct onic_tx_queue *tx_queue[ONIC_MAX_QUEUES];
+	struct onic_rx_queue *rx_queue[ONIC_MAX_QUEUES];
+
+	struct onic_hardware hw;
+};
+
+#endif
